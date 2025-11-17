@@ -5,6 +5,7 @@ import {OracleStablecoin} from "./OracleStablecoin.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {AggregatorV3Interface} from "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
+import {OracleLib} from "./libraries/OracleLib.sol";
 
 /**
  * @title OSCEngine
@@ -21,6 +22,8 @@ contract OSCEngine is ReentrancyGuard {
     error OSCEngine__HealthFactorNotImproved();
     error OSCEngine__UserHasNoDebt();
     error OSCEngine__HealthFactorOk();
+
+    using OracleLib for AggregatorV3Interface;
 
     event CollateralDeposited(address indexed user, address indexed token, uint256 indexed amount);
     event CollateralRedeemed(address indexed from, address indexed to, address indexed token, uint256 amount);
@@ -196,7 +199,7 @@ contract OSCEngine is ReentrancyGuard {
     function getTokenAmountFromUsdValue(address _token, uint256 _usdValue) public view returns (uint256) {
         AggregatorV3Interface priceFeed = AggregatorV3Interface(s_pricefeeds[_token]);
 
-        (, int256 price,,,) = priceFeed.latestRoundData();
+        (, int256 price,,,) = priceFeed.staleCheckLatestRoundData();
 
         return (_usdValue * PRECISION) / (uint256(price) * ADDITIONAL_PRECISION);
     }
@@ -213,7 +216,7 @@ contract OSCEngine is ReentrancyGuard {
     function getUsdValue(address _token, uint256 _amount) public view returns (uint256) {
         AggregatorV3Interface priceFeed = AggregatorV3Interface(s_pricefeeds[_token]);
 
-        (, int256 price,,,) = priceFeed.latestRoundData();
+        (, int256 price,,,) = priceFeed.staleCheckLatestRoundData();
 
         return ((uint256(price) * ADDITIONAL_PRECISION) * _amount) / PRECISION;
     }
@@ -229,4 +232,9 @@ contract OSCEngine is ReentrancyGuard {
     function getHealthFactor() external view returns (uint256) {
         return _healthFactor(msg.sender);
     }
+
+    function getUserCollateralDeposited(address _user, address _token) external view returns (uint256) {
+        return s_collateralDeposited[_user][_token];
+    }
+    
 }
